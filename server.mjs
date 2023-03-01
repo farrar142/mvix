@@ -16,6 +16,7 @@ if (!(await isExistingFile('index.html'))) {
 
 const PWD = process.cwd();
 const DEBUG_MODE = Boolean(process.env.DEBUG);
+const HOST = process.env.HOST ?? '0.0.0.0';
 const PORT = Number(process.env.PORT ?? 3000);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SAVE_DATA_PATH = path.join(PWD, 'mvix.json');
@@ -67,7 +68,7 @@ server.get('/*', async(req, reply) => {
 });
 
 try {
-  const url = await server.listen({ port: PORT });
+  const url = await server.listen({ port: PORT, host: HOST });
 
   console.log(`Listening on ${url}`);
   open(url);
