@@ -4,10 +4,11 @@ A RPG Maker MV/MZ game player for Linux on your browser
 
 ## Usage
 
-### Environment
+### Environments
 
 - `DEBUG`: `boolean`
-- `PORT`: `integer`
+- `HOST`: `string` (default: `0.0.0.0`)
+- `PORT`: `integer` (default: `3000`)
 
 ### Install globally
 
