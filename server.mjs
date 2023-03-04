@@ -63,7 +63,7 @@ server.get('/*', async(req, reply) => {
     return reply.sendFile(base, dir);
   }
 
-  reply.status(404);
+  return reply.status(404).send();
 });
 
 try {
