@@ -1,6 +1,6 @@
 {
   "name": "mvix",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A RPG Maker MV/MZ game player for Linux on your browser",
   "bin": {
     "mvix": "server.mjs"
