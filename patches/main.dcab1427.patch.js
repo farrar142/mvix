@@ -60,15 +60,19 @@ PluginManager.setup($plugins);
 window.onload = async () => {
   const remoteGameSave = await fetch('/mvix/load', {method: 'POST'}).then((res) => res.json())
   const currentGame = localStorage.getItem('mvix:current');
-  if(currentGame && currentGame !== document.title) {
-    const shouldOverwrite = confirm(`The save data of "${remoteGameSave['mvix:current']}" will OVERWRITE the save data of "${currentGame}", continue?`);
-    if(!shouldOverwrite) {
-      return document.write('<h1>Please ensure that your previous game save file existed, then overwrite by new game.</h1>')
-    }
-  }
+
   if(remoteGameSave) {
+    if(currentGame && currentGame !== document.title) {
+      const shouldOverwrite = confirm(`The save data of "${remoteGameSave['mvix:current']}" will OVERWRITE the save data of "${currentGame}", continue?`);
+
+      if(!shouldOverwrite) {
+        return document.write('<h1>Please ensure that your previous game save file existed, then overwrite by new game.</h1>')
+      }
+    }
+
     loadRemoteGameSave(remoteGameSave)
   }
+
   localStorage.setItem('mvix:current', document.title);
   SceneManager.run(Scene_Boot);
 };
