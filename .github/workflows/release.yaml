@@ -1,0 +1,135 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  check-version:
+    name: 🧐 Check version
+    runs-on: ubuntu-latest
+    outputs:
+      PACKAGE_JSON_VERSION: ${{ steps.package-json-version.outputs.PACKAGE_JSON_VERSION }}
+      continue: ${{ steps.package-json-version.outputs.DO_RELEASE != '' }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - id: package-json-version
+        env:
+          NPM_CONFIG_UPDATE_NOTIFIER: false
+        run: |
+          PACKAGE_JSON_VERSION="$(jq -r .version package.json)"
+          echo "PACKAGE_JSON_VERSION=${PACKAGE_JSON_VERSION}" >> "${GITHUB_OUTPUT}"
+          NPM_REMOTE_VERSION="$(npm show mvix version)"
+          DO_RELEASE="$(npx --yes --quiet semver -r ">${NPM_REMOTE_VERSION}" "${PACKAGE_JSON_VERSION}")"
+          echo "DO_RELEASE=${DO_RELEASE}" >> "${GITHUB_OUTPUT}"
+
+  deploy-to-npm:
+    name: 📦 Deploy to npm
+    runs-on: ubuntu-latest
+    needs: check-version
+    if: ${{ needs.check-version.outputs.continue }}
+    env:
+      RELEASE_VERSION: ${{ needs.check-version.outputs.PACKAGE_JSON_VERSION }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - uses: pnpm/action-setup@v2
+        name: Setup pnpm
+        id: setup-pnpm
+        with:
+          version: 7
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> "${GITHUB_OUTPUT}"
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - run: pnpm install
+
+      - run: pnpm run test
+
+      # cSpell:ignore pascalgn
+      - uses: pascalgn/npm-publish-action@1.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+        with:
+          tag_name: "v${{ env.RELEASE_VERSION }}"
+
+  github-release:
+    name: 🛫 GitHub release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs: [check-version, deploy-to-npm]
+    if: ${{ needs.check-version.outputs.continue }}
+    env:
+      RELEASE_VERSION: ${{ needs.check-version.outputs.PACKAGE_JSON_VERSION }}
+    steps:
+      - uses: actions/checkout@v3
+
+      # cSpell:ignore ncipollo
+      - uses: ncipollo/release-action@v1
+        with:
+          generateReleaseNotes: true
+          tag: "v${{ env.RELEASE_VERSION }}"
+
+  build-and-push-image:
+    name: 🐳 Build image & deploy to ghcr.io
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    needs: [check-version, deploy-to-npm]
+    if: ${{ needs.check-version.outputs.continue }}
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}
+      RELEASE_VERSION: ${{ needs.check-version.outputs.PACKAGE_JSON_VERSION }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
+        # aka docker/login-action@v2.0.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@69f6fc9d46f2f8bf0d5491e4aabe0bb8c6a4678a
+        # aka docker/metadata-action@v4.0.1
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
+        # aka docker/build-push-action@3.1.1
+        with:
+          context: .
+          push: true
+          tags: "v${{ env.RELEASE_VERSION }}"
+          labels: ${{ steps.meta.outputs.labels }}
