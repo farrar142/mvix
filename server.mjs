@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fs from 'fs/promises';
+import { createHash } from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import open from 'open';
@@ -20,6 +21,7 @@ const HOST = process.env.HOST ?? '0.0.0.0';
 const PORT = Number(process.env.PORT ?? 3000);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SAVE_DATA_PATH = path.join(PWD, 'mvix.json');
+const PATCHES_DIR = path.join(__dirname, 'patches');
 
 const server = Fastify({ logger: DEBUG_MODE });
 
@@ -51,7 +53,13 @@ server.get('/*', async(req, reply) => {
     const { dir, base } = path.parse(found);
 
     if (base === 'main.js') {
-      return reply.sendFile(base, path.join(__dirname, 'patches'));
+      const fileContent = (await fs.readFile(found, 'utf8')).replace(/\r/g, '');
+      const hash = createHash('sha256').update(fileContent).digest('hex').slice(0, 8);
+      const correspondingFilePath = path.join(PATCHES_DIR, `main.${hash}.patch.js`);
+
+      if (await isExistingFile(correspondingFilePath)){
+        return reply.sendFile(`main.${hash}.patch.js`, PATCHES_DIR);
+      }
     }
 
     return reply.sendFile(base, dir);
