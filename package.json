@@ -1,6 +1,6 @@
 {
   "name": "mvix",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A RPG Maker MV/MZ game player for Linux on your browser",
   "bin": {
     "mvix": "server.mjs"
@@ -10,7 +10,11 @@
     "serve": "node server.mjs",
     "test": "vitest"
   },
-  "keywords": ["rpg-maker", "game", "linux"],
+  "keywords": [
+    "rpg-maker",
+    "game",
+    "linux"
+  ],
   "author": "FlandreDaisuki<vbnm123c+github@gmail.com>",
   "license": "MIT",
   "dependencies": {
