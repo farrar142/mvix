@@ -49,7 +49,7 @@ describe('findPathCaseInsensitively', () => {
 });
 
 
-test('findFileCaseInsensitively', async() => {
+describe('findFileCaseInsensitively', async() => {
   const p = (s) => path.resolve(__dirname, s);
 
   test('exactly same path', async() => {
@@ -89,4 +89,4 @@ test('findFileCaseInsensitively', async() => {
     expect(await findFileCaseInsensitively(p('Fake'))).toBeNull();
     expect(await findFileCaseInsensitively(p('Fate/Zer0'))).toBeNull();
   });
-});
+})
