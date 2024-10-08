@@ -9,11 +9,35 @@ jobs:
     name: 🧐 Check version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
-      - uses: actions/setup-node@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          node-version: 18
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: pnpm/action-setup@v4
+        name: Setup pnpm
+        id: setup-pnpm
+        with:
+          version: 9
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-store-path
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-store-path.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - id: package-json-version
         env:
@@ -23,45 +47,48 @@ jobs:
           NPM_REMOTE_VERSION="$(npm show mvix version)"
 
           # exit 1 if no valid versions matched
-          npx --yes --quiet semver -r ">${NPM_REMOTE_VERSION}" "${PACKAGE_JSON_VERSION}"
+          pnpm dlx semver -r ">${NPM_REMOTE_VERSION}" "${PACKAGE_JSON_VERSION}"
 
   deploy-to-npm:
     name: 📦 Deploy to npm
     runs-on: ubuntu-latest
     needs: check-version
     steps:
-      - uses: actions/checkout@v3
-
-      - uses: actions/setup-node@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          node-version: 18
+          fetch-depth: 0
 
-      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: pnpm/action-setup@v4
         name: Setup pnpm
         id: setup-pnpm
         with:
-          version: 7
+          version: 9
           run_install: false
 
       - name: Get pnpm store directory
-        id: pnpm-cache
+        id: pnpm-store-path
         shell: bash
         run: |
-          echo "STORE_PATH=$(pnpm store path)" >> "${GITHUB_OUTPUT}"
+          echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
-      - name: Setup pnpm cache
-        uses: actions/cache@v3
+      - uses: actions/cache@v4
+        name: Setup pnpm cache
         with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          path: ${{ steps.pnpm-store-path.outputs.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - run: pnpm install
+      - run: pnpm install --frozen-lockfile
 
       - run: pnpm run test
 
-      - uses: JS-DevTools/npm-publish@v1
+      - uses: JS-DevTools/npm-publish@v3
         with:
           token: ${{ secrets.NPM_AUTH_TOKEN }}
 
@@ -77,11 +104,13 @@ jobs:
       IMAGE_NAME: ${{ github.repository }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Log in to the Container registry
-        uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
-        # aka docker/login-action@v2.0.0
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
+        # aka docker/login-action@v3.3.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -89,14 +118,14 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@69f6fc9d46f2f8bf0d5491e4aabe0bb8c6a4678a
-        # aka docker/metadata-action@v4.0.1
+        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81
+        # aka docker/metadata-action@v5.5.1
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
-        # aka docker/build-push-action@3.1.1
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75
+        # aka docker/build-push-action@v6.9.0
         with:
           context: .
           push: true
