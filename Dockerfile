@@ -2,8 +2,11 @@ FROM node:alpine
 
 VOLUME [ "/game" ]
 
-RUN npm i -g mvix
 
+WORKDIR /modules
+COPY . .
+RUN npm install
+RUN npm install -g .
 WORKDIR /game
 
 CMD [ "mvix" ]
